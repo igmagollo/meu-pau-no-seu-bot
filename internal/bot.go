@@ -71,7 +71,7 @@ func (b *Bot) Run(ctx context.Context) error {
 		messageSubscriptions = append(messageSubscriptions, messages)
 	}
 
-	for message := range messagesFunIn(messageSubscriptions) {
+	for message := range messagesFanIn(messageSubscriptions) {
 		b.logger.Printf("received message: %s", message.Text())
 		answer, ok := b.answer(message.Text())
 		if !ok {
@@ -119,7 +119,7 @@ func (b *Bot) Stop(ctx context.Context) error {
 	}
 }
 
-func messagesFunIn(channels []<-chan Message) <-chan Message {
+func messagesFanIn(channels []<-chan Message) <-chan Message {
 	out := make(chan Message)
 
 	wg := &sync.WaitGroup{}
