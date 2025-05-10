@@ -29,17 +29,6 @@ func NewTelegram(logger *log.Logger) (*Telegram, error) {
 		return nil, fmt.Errorf("bot is not allowed to read all group messages")
 	}
 
-	chat, err := bot.GetChat(tgbotapi.ChatInfoConfig{
-		ChatConfig: tgbotapi.ChatConfig{
-			ChatID: 1427831828,
-		},
-	})
-	if err == nil {
-		logger.Printf("chat: %+v", chat)
-		logger.Printf("chat.Title: %s", chat.Title)
-		logger.Printf("chat.Type: %s", chat.Type)
-	}
-
 	return &Telegram{bot: bot, logger: logger}, nil
 }
 
