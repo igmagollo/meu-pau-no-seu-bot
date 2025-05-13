@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -73,7 +74,8 @@ func (b *Bot) Run(ctx context.Context) error {
 
 	for message := range messagesFanIn(messageSubscriptions) {
 		b.logger.Printf("received message: %s", message.Text())
-		answer, ok := b.answer(message.Text())
+		messageText := cleanMessage(message.Text())
+		answer, ok := b.answer(messageText)
 		if !ok {
 			continue
 		}
@@ -139,4 +141,18 @@ func messagesFanIn(channels []<-chan Message) <-chan Message {
 	}()
 
 	return out
+}
+
+func cleanMessage(message string) string {
+	// remove all special characters
+	replacePattern := regexp.MustCompile(`[!@#$%^&*()_+={}|\\:;<>,.?/]`)
+	message = replacePattern.ReplaceAllString(message, "")
+
+	// remove all extra spaces
+	replacePattern = regexp.MustCompile(`\s+`)
+	message = replacePattern.ReplaceAllString(message, " ")
+
+	message = strings.ToLower(message)
+	message = strings.TrimSpace(message)
+	return message
 }
