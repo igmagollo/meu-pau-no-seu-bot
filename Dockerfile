@@ -7,18 +7,19 @@ RUN mkdir -p /app
 WORKDIR /app
 
 COPY go.mod go.mod
-
 COPY go.sum go.sum
+RUN go mod download
 
 ADD . .
 
-RUN CGO_ENABLED=0 go build -o bin/meu-pau-no-seu-bot cmd/meu_pau_no_seu_bot/main.go
+RUN make build
 
 FROM scratch
 
 WORKDIR /app
 
-COPY --from=builder bin/meu-pau-no-seu-bot ./
-COPY --from=builder config.yml ./
+COPY --from=builder /app/bin/meu_pau_no_seu_bot ./
+COPY --from=builder /app/config.yaml ./
 
-CMD ["/app/meu-pau-no-seu-bot -config config.yml"]
+ENTRYPOINT ["/app/meu_pau_no_seu_bot"]
+CMD ["-config", "config.yaml"]

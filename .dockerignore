@@ -1,0 +1,7 @@
+.env
+.env.sample
+.gitignore
+*.MD
+LICENSE
+Dockerfile
+.github
