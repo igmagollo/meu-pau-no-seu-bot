@@ -38,6 +38,10 @@ func NewTelegram(logger *log.Logger) (*Telegram, error) {
 	whitelistedChats := strings.Split(os.Getenv("TG_CHAT_WHITELIST"), ",")
 	if len(whitelistedChats) > 0 {
 		for _, chat := range whitelistedChats {
+			if chat == "" {
+				continue
+			}
+
 			chatID, err := strconv.ParseInt(chat, 10, 64)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse TG_CHAT_WHITELIST environment variable: %w", err)

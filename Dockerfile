@@ -14,7 +14,7 @@ ADD . .
 
 RUN make build
 
-FROM scratch
+FROM gcr.io/distroless/base
 
 WORKDIR /app
 
