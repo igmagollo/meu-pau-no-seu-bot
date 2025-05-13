@@ -1,11 +1,14 @@
-name: Test
+name: Test Cache Update
 
 on:
-  pull_request:
+  push:
     branches: [ "main" ]
 
-jobs:
+concurrency:
+  group: ${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
 
+jobs:
   build:
     runs-on: ubuntu-latest
     steps:
