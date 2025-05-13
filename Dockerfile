@@ -19,7 +19,7 @@ FROM gcr.io/distroless/base
 WORKDIR /app
 
 COPY --from=builder /app/bin/ .
-COPY --from=builder /app/config.yaml .
+COPY --from=builder /app/answers.yaml .
 
 ENTRYPOINT ["./meu_pau_no_seu_bot"]
-CMD ["-config", "./config.yaml"]
+CMD ["-answers", "./answers.yaml"]
