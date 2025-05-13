@@ -7,13 +7,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	AnswerRate float64             `yaml:"answer_rate"`
-	Suffixes   map[string][]string `yaml:"suffixes"`
+type Answers struct {
+	Answers []string `yaml:"answers"`
 }
 
-func NewConfig(path string) (*Config, error) {
-	var config Config
+func NewAnswers(path string) (*Answers, error) {
+	var config Answers
 
 	yamlFile, err := os.ReadFile(path)
 	if err != nil {

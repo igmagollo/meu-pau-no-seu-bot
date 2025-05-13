@@ -7,6 +7,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -19,7 +20,7 @@ var (
 	Name    = "meu-pau-no-seu-bot"
 	Version string
 
-	configPath = flag.String("config", "", "path to config file")
+	answersPath = flag.String("answers", "", "path to answers file")
 )
 
 func main() {
@@ -27,9 +28,18 @@ func main() {
 	logger := log.New(os.Stdout, "", log.LstdFlags)
 	godotenv.Load()
 
-	if *configPath == "" {
+	if *answersPath == "" {
 		flag.Usage()
 		os.Exit(1)
+	}
+
+	answerRate := 1.0
+	if os.Getenv("ANSWER_RATE") != "" {
+		r, err := strconv.ParseFloat(os.Getenv("ANSWER_RATE"), 64)
+		if err != nil {
+			logger.Fatalf("failed to parse answer rate: %v", err)
+		}
+		answerRate = r
 	}
 
 	telegram, err := internal.NewTelegram(logger)
@@ -37,12 +47,12 @@ func main() {
 		logger.Fatalf("failed to create telegram: %v", err)
 	}
 
-	config, err := internal.NewConfig(*configPath)
+	answers, err := internal.NewAnswers(*answersPath)
 	if err != nil {
-		logger.Fatalf("failed to create config: %v", err)
+		logger.Fatalf("failed to create answers: %v", err)
 	}
 
-	bot, err := internal.NewBot(config, logger, rand.IntN, rand.Float64, telegram)
+	bot, err := internal.NewBot(answers, logger, answerRate, rand.IntN, rand.Float64, telegram)
 	if err != nil {
 		logger.Fatalf("failed to create bot: %v", err)
 	}

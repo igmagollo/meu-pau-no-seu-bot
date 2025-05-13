@@ -21,16 +21,18 @@ type Integration interface {
 }
 
 type Bot struct {
-	config      *Config
+	trie        *SuffixTrie
 	logger      *log.Logger
+	answerRate  float64
 	randIntN    func(n int) int
 	randFloat64 func() float64
 	integration []Integration
 }
 
 func NewBot(
-	config *Config,
+	answers *Answers,
 	logger *log.Logger,
+	answerRate float64,
 	randIntN func(n int) int,
 	randFloat64 func() float64,
 	integration ...Integration,
@@ -39,9 +41,15 @@ func NewBot(
 		return nil, fmt.Errorf("at least one integration is required")
 	}
 
+	trie := NewSuffixTrie()
+	for _, answer := range answers.Answers {
+		trie.Insert(answer)
+	}
+
 	return &Bot{
-		config:      config,
+		trie:        trie,
 		logger:      logger,
+		answerRate:  answerRate,
 		randIntN:    randIntN,
 		randFloat64: randFloat64,
 		integration: integration,
@@ -49,17 +57,16 @@ func NewBot(
 }
 
 func (b *Bot) answer(message string) (string, bool) {
-	if b.config.AnswerRate < b.randFloat64() {
+	if b.answerRate < b.randFloat64() {
 		return "", false
 	}
 
-	for suffix, answers := range b.config.Suffixes {
-		if strings.HasSuffix(message, suffix) {
-			return answers[b.randIntN(len(answers))], true
-		}
+	answers := b.trie.Search(message)
+	if len(answers) == 0 {
+		return "", false
 	}
 
-	return "", false
+	return answers[b.randIntN(len(answers))], true
 }
 
 func (b *Bot) Run(ctx context.Context) error {
