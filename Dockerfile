@@ -18,8 +18,8 @@ FROM scratch
 
 WORKDIR /app
 
-COPY --from=builder /app/bin/meu_pau_no_seu_bot ./
-COPY --from=builder /app/config.yaml ./
+COPY --from=builder /app/bin/ .
+COPY --from=builder /app/config.yaml .
 
-ENTRYPOINT ["/app/meu_pau_no_seu_bot"]
-CMD ["-config", "config.yaml"]
+ENTRYPOINT ["./meu_pau_no_seu_bot"]
+CMD ["-config", "./config.yaml"]

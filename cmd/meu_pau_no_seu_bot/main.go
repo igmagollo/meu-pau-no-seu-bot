@@ -25,10 +25,7 @@ var (
 func main() {
 	flag.Parse()
 	logger := log.New(os.Stdout, "", log.LstdFlags)
-
-	if err := godotenv.Load(); err != nil {
-		logger.Printf("failed to load .env file: %v", err)
-	}
+	godotenv.Load()
 
 	if *configPath == "" {
 		flag.Usage()
