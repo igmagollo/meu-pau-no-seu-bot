@@ -4,12 +4,15 @@ on:
   push:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.ref }}-${{ github.workflow }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4

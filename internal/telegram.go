@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
+	"strconv"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type Telegram struct {
-	bot    *tgbotapi.BotAPI
-	logger *log.Logger
+	bot              *tgbotapi.BotAPI
+	whitelistedChats []int64
+	logger           *log.Logger
 }
 
 func NewTelegram(logger *log.Logger) (*Telegram, error) {
@@ -29,7 +33,20 @@ func NewTelegram(logger *log.Logger) (*Telegram, error) {
 		return nil, fmt.Errorf("bot is not allowed to read all group messages")
 	}
 
-	return &Telegram{bot: bot, logger: logger}, nil
+	t := &Telegram{bot: bot, logger: logger}
+
+	whitelistedChats := strings.Split(os.Getenv("TG_CHAT_WHITELIST"), ",")
+	if len(whitelistedChats) > 0 {
+		for _, chat := range whitelistedChats {
+			chatID, err := strconv.ParseInt(chat, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse TG_CHAT_WHITELIST environment variable: %w", err)
+			}
+			t.whitelistedChats = append(t.whitelistedChats, chatID)
+		}
+	}
+
+	return t, nil
 }
 
 func (t *Telegram) Subscribe(ctx context.Context) (<-chan Message, error) {
@@ -50,33 +67,44 @@ func (t *Telegram) Subscribe(ctx context.Context) (<-chan Message, error) {
 				continue
 			}
 
+			t.logger.Printf("[telegram] message received. chat_id: %d, message_id: %d, text: %s",
+				update.Message.Chat.ID,
+				update.Message.MessageID,
+				update.Message.Text,
+			)
+
+			if len(t.whitelistedChats) > 0 && !slices.Contains(t.whitelistedChats, update.Message.Chat.ID) {
+				t.logger.Printf("[telegram] chat is not allowed: %d", update.Message.Chat.ID)
+				continue
+			}
+
 			msg, err := newTelegramMessage(&update, t.bot)
 			if err != nil {
-				t.logger.Printf("failed to create telegram message: %v", err)
+				t.logger.Printf("[telegram] failed to create telegram message: %v", err)
 				continue
 			}
 
 			ch <- msg
 		}
 
-		t.logger.Printf("telegram updates channel closed")
+		t.logger.Printf("[telegram] updates channel closed")
 	}()
 
 	return ch, nil
 }
 
 func (t *Telegram) Stop(ctx context.Context) error {
-	t.logger.Printf("stopping telegram")
+	t.logger.Printf("[telegram] stopping")
 	t.bot.StopReceivingUpdates()
-	t.logger.Printf("telegram stopped")
+	t.logger.Printf("[telegram] stopped")
 	return nil
 }
 
 func (t *Telegram) clearMessages() int {
-	t.logger.Printf("clearing messages")
+	t.logger.Printf("[telegram] clearing messages")
 	offset := 0
 	for {
-		t.logger.Printf("clearing messages with offset %d", offset)
+		t.logger.Printf("[telegram] clearing messages with offset %d", offset)
 
 		updates, err := t.bot.GetUpdates(tgbotapi.UpdateConfig{
 			Offset:  offset,
@@ -84,16 +112,15 @@ func (t *Telegram) clearMessages() int {
 			Timeout: 0,
 		})
 		if err != nil {
-			t.logger.Printf("failed to get updates: %v", err)
+			t.logger.Printf("[telegram] failed to get updates: %v", err)
 			return offset
 		}
 
 		for _, update := range updates {
-			t.logger.Printf("update: %+v", update)
 			if update.Message != nil {
-				t.logger.Printf("message: %s", update.Message.Text)
+				t.logger.Printf("[telegram] message: %s", update.Message.Text)
 			} else {
-				t.logger.Printf("discarting update")
+				t.logger.Printf("[telegram] discarting update")
 			}
 		}
 
@@ -104,7 +131,7 @@ func (t *Telegram) clearMessages() int {
 		offset = updates[len(updates)-1].UpdateID + 1
 	}
 
-	t.logger.Printf("cleared %d messages", offset)
+	t.logger.Printf("[telegram] cleared %d messages", offset)
 
 	return offset
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -66,14 +67,15 @@ func (b *Bot) Run(ctx context.Context) error {
 	for _, integration := range b.integration {
 		messages, err := integration.Subscribe(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to subscribe to messages: %w", err)
+			return fmt.Errorf("[bot] failed to subscribe to messages: %w", err)
 		}
 		messageSubscriptions = append(messageSubscriptions, messages)
 	}
 
 	for message := range messagesFanIn(messageSubscriptions) {
-		b.logger.Printf("received message: %s", message.Text())
-		answer, ok := b.answer(message.Text())
+		b.logger.Printf("[bot] received message: %s", message.Text())
+		messageText := cleanMessage(message.Text())
+		answer, ok := b.answer(messageText)
 		if !ok {
 			continue
 		}
@@ -83,13 +85,13 @@ func (b *Bot) Run(ctx context.Context) error {
 		}
 	}
 
-	b.logger.Printf("all messages processed")
+	b.logger.Printf("[bot] all messages processed")
 
 	return nil
 }
 
 func (b *Bot) Stop(ctx context.Context) error {
-	b.logger.Printf("stopping bot")
+	b.logger.Printf("[bot] stopping")
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -99,7 +101,7 @@ func (b *Bot) Stop(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 			if err := integration.Stop(ctx); err != nil {
-				b.logger.Printf("failed to stop integration: %v", err)
+				b.logger.Printf("[bot] failed to stop integration: %v", err)
 			}
 		}()
 	}
@@ -114,7 +116,7 @@ func (b *Bot) Stop(ctx context.Context) error {
 	case <-ctx.Done():
 		return fmt.Errorf("timeout while stopping bot")
 	case <-closeChan:
-		b.logger.Printf("bot stopped")
+		b.logger.Printf("[bot] stopped")
 		return nil
 	}
 }
@@ -139,4 +141,18 @@ func messagesFanIn(channels []<-chan Message) <-chan Message {
 	}()
 
 	return out
+}
+
+func cleanMessage(message string) string {
+	// remove all special characters
+	replacePattern := regexp.MustCompile(`[!@#$%^&*()_+={}|\\:;<>,.?/]`)
+	message = replacePattern.ReplaceAllString(message, "")
+
+	// remove all extra spaces
+	replacePattern = regexp.MustCompile(`\s+`)
+	message = replacePattern.ReplaceAllString(message, " ")
+
+	message = strings.ToLower(message)
+	message = strings.TrimSpace(message)
+	return message
 }
