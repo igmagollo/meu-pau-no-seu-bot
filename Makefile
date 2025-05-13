@@ -1,5 +1,7 @@
+VERSION=$(shell git describe --tags --always)
+
 build:
-	go build -o bin/meu-pau-no-seu-bot cmd/meu_pau_no_seu_bot/main.go
+	mkdir -p bin/ && go build -ldflags "-X main.Version=$(VERSION)" -o ./bin/ ./...	
 
 clean:
 	rm -f bin/meu-pau-no-seu-bot
