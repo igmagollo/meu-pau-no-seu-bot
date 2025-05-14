@@ -56,14 +56,15 @@ func (t *SuffixTrie) Insert(phrase string) {
 }
 
 func (t *SuffixTrie) Search(phrase string) []string {
-	i := len(phrase) - 1
+	runes := []rune(phrase)
+	i := len(runes) - 1
 	currentNode := t.root
 	possibleValues := []string{}
-	for i >= 0 && currentNode != nil && phrase[i] != ' ' {
+	for i >= 0 && currentNode != nil && runes[i] != ' ' {
 		if currentNode.values != nil {
 			possibleValues = append(possibleValues, currentNode.values...)
 		}
-		n, _ := t.findChild(currentNode.children, rune(phrase[i]))
+		n, _ := t.findChild(currentNode.children, runes[i])
 		if n != nil {
 			currentNode = n
 		} else {
@@ -119,15 +120,23 @@ func (t *SuffixTrie) findChild(children []*node, key rune) (*node, int) {
 // - "meu pau na sua [mão]" will return "oã"
 // - "meu pau limpou seu [den]te" will return "etne"
 func (t *SuffixTrie) getReversedSuffix(phrase string) []rune {
-	i := len(phrase) - 1
-	for phrase[i] != ']' {
+	runes := []rune(phrase)
+	i := len(runes) - 1
+	for runes[i] != ']' {
 		i--
 	}
-	for !slices.Contains(vowels, rune(phrase[i])) && phrase[i] != '[' {
+	for !t.isVowel(runes[i]) && runes[i] != '[' {
 		i--
 	}
-	runes := []rune(strings.ReplaceAll(phrase[i:], "]", ""))
+	for t.isVowel(runes[i]) && runes[i] != '[' {
+		i--
+	}
+	runes = []rune(strings.ReplaceAll(string(runes[i+1:]), "]", ""))
 	slices.Reverse(runes)
 
 	return runes
+}
+
+func (t *SuffixTrie) isVowel(char rune) bool {
+	return slices.Contains(vowels, char)
 }

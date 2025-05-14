@@ -1,14 +1,31 @@
 package internal
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestSuffixTrie(t *testing.T) {
+	t.Run("test is vowel", func(t *testing.T) {
+		trie := NewSuffixTrie()
+
+		if isVowel := trie.isVowel('m'); isVowel {
+			t.Errorf("expected 'm' to not be a vowel")
+		}
+
+		if isVowel := trie.isVowel('ã'); !isVowel {
+			t.Errorf("expected 'ã' to be a vowel")
+		}
+
+		if isVowel := trie.isVowel('o'); !isVowel {
+			t.Errorf("expected 'o' to be a vowel")
+		}
+	})
 	t.Run("test insert/search", func(t *testing.T) {
 		trie := NewSuffixTrie()
 		trie.Insert("meu pau na sua [mão]")
 		trie.Insert("meu pau limpou seu [den]te")
-		results := trie.Search("meu pau na sua mão")
 
+		results := trie.Search("meu pau na sua mão")
 		if len(results) != 1 {
 			t.Errorf("expected 1 result, got %d", len(results))
 		}
@@ -32,6 +49,14 @@ func TestSuffixTrie(t *testing.T) {
 			t.Errorf("expected 'meu pau na sua mão', got %s", results[0])
 		}
 
+		results = trie.Search("mas o parapeito vai ficar baixo")
+		if len(results) != 0 {
+			t.Errorf("expected 0 results, got %d", len(results))
+			for _, result := range results {
+				t.Logf("result: %s", result)
+			}
+		}
+
 		results = trie.Search("realmente")
 		if len(results) != 1 {
 			t.Errorf("expected 1 result, got %d", len(results))
@@ -42,8 +67,17 @@ func TestSuffixTrie(t *testing.T) {
 
 		trie.Insert("meu pau é delin[quen]te")
 		results = trie.Search("realmente")
-		if len(results) != 2 {
+		// for now, we are not supporting this match
+		if len(results) != 1 {
 			t.Errorf("expected 1 result, got %d", len(results))
+		}
+		if results[0] != "meu pau limpou seu dente" {
+			t.Errorf("expected 'meu pau limpou seu dente', got %s", results[0])
+		}
+
+		results = trie.Search("seu delinquente")
+		if len(results) != 2 {
+			t.Errorf("expected 2 results, got %d", len(results))
 		}
 		if results[0] != "meu pau limpou seu dente" {
 			t.Errorf("expected 'meu pau limpou seu dente', got %s", results[0])
@@ -66,22 +100,22 @@ func TestSuffixTrie(t *testing.T) {
 			t.Errorf("expected 6 results, got %d", len(results))
 		}
 		if results[0] != "meu pau te cutuca" {
-			t.Errorf("expected 'meu pau te cutuca', got %s", results[0])
+			t.Errorf("expected 'meu pau te cutuca', got '%s'", results[0])
 		}
 		if results[1] != "meu pau te deu uma dedada" {
-			t.Errorf("expected 'meu pau te deu uma dedada', got %s", results[1])
+			t.Errorf("expected 'meu pau te deu uma dedada', got '%s'", results[1])
 		}
 		if results[2] != "meu pau te fez cilada" {
-			t.Errorf("expected 'meu pau te fez cilada', got %s", results[2])
+			t.Errorf("expected 'meu pau te fez cilada', got '%s'", results[2])
 		}
-		if results[3] != "meu pau limpou seu dente" {
-			t.Errorf("expected 'meu pau limpou seu dente', got %s", results[3])
+		if results[3] != "meu pau é delinquente" {
+			t.Errorf("expected 'meu pau é delinquente', got '%s'", results[3])
 		}
-		if results[4] != "meu pau é delinquente" {
-			t.Errorf("expected 'meu pau é delinquente', got %s", results[4])
+		if results[4] != "meu pau limpou seu dente" {
+			t.Errorf("expected 'meu pau limpou seu dente', got '%s'", results[4])
 		}
 		if results[5] != "meu pau na sua mão" {
-			t.Errorf("expected 'meu pau na sua mão', got %s", results[5])
+			t.Errorf("expected 'meu pau na sua mão', got '%s'", results[5])
 		}
 	})
 }
