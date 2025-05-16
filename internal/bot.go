@@ -13,6 +13,9 @@ import (
 type Message interface {
 	Text() string
 	Reply(ctx context.Context, message string) error
+	React(ctx context.Context, emoji string) error
+	Parent() Message
+	IsMessageToMe() bool
 }
 
 type Integration interface {
@@ -28,6 +31,18 @@ type Bot struct {
 	randFloat64 func() float64
 	integration []Integration
 }
+
+type command struct {
+	Command commandType
+	Args    []string
+}
+
+type commandType int
+
+const (
+	commandTypeUnknown commandType = iota
+	commandTypeReply
+)
 
 func NewBot(
 	answers *Answers,
@@ -56,19 +71,6 @@ func NewBot(
 	}, nil
 }
 
-func (b *Bot) answer(message string) (string, bool) {
-	if b.answerRate < b.randFloat64() {
-		return "", false
-	}
-
-	answers := b.trie.Search(message)
-	if len(answers) == 0 {
-		return "", false
-	}
-
-	return answers[b.randIntN(len(answers))], true
-}
-
 func (b *Bot) Run(ctx context.Context) error {
 	messageSubscriptions := make([]<-chan Message, len(b.integration))
 	for _, integration := range b.integration {
@@ -81,14 +83,9 @@ func (b *Bot) Run(ctx context.Context) error {
 
 	for message := range messagesFanIn(messageSubscriptions) {
 		b.logger.Printf("[bot] received message: %s", message.Text())
-		messageText := cleanMessage(message.Text())
-		answer, ok := b.answer(messageText)
-		if !ok {
-			continue
-		}
 
-		if err := message.Reply(ctx, answer); err != nil {
-			return fmt.Errorf("failed to reply to message: %w", err)
+		if err := b.handleMessage(ctx, message); err != nil {
+			b.logger.Printf("[bot] failed to handle message: %v", err)
 		}
 	}
 
@@ -128,6 +125,84 @@ func (b *Bot) Stop(ctx context.Context) error {
 	}
 }
 
+func (b *Bot) handleMessage(ctx context.Context, message Message) error {
+	command := b.parseCommand(message)
+	if command == nil {
+		return nil
+	}
+
+	switch command.Command {
+	case commandTypeReply:
+		if err := b.handleReply(ctx, message); err != nil {
+			return fmt.Errorf("failed to handle reply message: %w", err)
+		}
+	default:
+		if err := b.handleDefault(ctx, message); err != nil {
+			return fmt.Errorf("failed to handle default message: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (b *Bot) handleReply(ctx context.Context, message Message) error {
+	parentMessage := message.Parent()
+	if parentMessage == nil {
+		return nil
+	}
+
+	messageText := parentMessage.Text()
+	answer, ok := b.answer(messageText)
+	if !ok {
+		answer = "meu pau ficou sem rimas"
+	}
+
+	if err := message.React(ctx, "👍"); err != nil {
+		return fmt.Errorf("failed to react to message: %w", err)
+	}
+
+	if err := parentMessage.Reply(ctx, answer); err != nil {
+		return fmt.Errorf("failed to reply to message: %w", err)
+	}
+
+	return nil
+}
+
+func (b *Bot) handleDefault(ctx context.Context, message Message) error {
+	if b.answerRate < b.randFloat64() {
+		return nil
+	}
+
+	messageText := message.Text()
+	answer, ok := b.answer(messageText)
+	if !ok {
+		return nil
+	}
+
+	if err := message.Reply(ctx, answer); err != nil {
+		return fmt.Errorf("failed to reply to message: %w", err)
+	}
+
+	return nil
+}
+
+func (b *Bot) parseCommand(message Message) *command {
+	if message.IsMessageToMe() {
+		return &command{Command: commandTypeReply, Args: []string{}}
+	}
+
+	return nil
+}
+
+func (b *Bot) answer(message string) (string, bool) {
+	answers := b.trie.Search(message)
+	if len(answers) == 0 {
+		return "", false
+	}
+
+	return answers[b.randIntN(len(answers))], true
+}
+
 func messagesFanIn(channels []<-chan Message) <-chan Message {
 	out := make(chan Message)
 
@@ -152,7 +227,7 @@ func messagesFanIn(channels []<-chan Message) <-chan Message {
 
 func cleanMessage(message string) string {
 	// remove all special characters
-	replacePattern := regexp.MustCompile(`[!@#$%^&*()_+={}|\\:;<>,.?/]`)
+	replacePattern := regexp.MustCompile(`[!@#$%^&*()+={}|\\:;<>,.?/]`)
 	message = replacePattern.ReplaceAllString(message, "")
 
 	// remove all extra spaces

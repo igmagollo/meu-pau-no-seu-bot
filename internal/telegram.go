@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	tgbotapi "github.com/OvyFlash/telegram-bot-api"
 )
 
 type Telegram struct {
@@ -82,7 +82,7 @@ func (t *Telegram) Subscribe(ctx context.Context) (<-chan Message, error) {
 				continue
 			}
 
-			msg, err := newTelegramMessage(&update, t.bot)
+			msg, err := newTelegramMessage(&update, t)
 			if err != nil {
 				t.logger.Printf("[telegram] failed to create telegram message: %v", err)
 				continue
@@ -141,34 +141,71 @@ func (t *Telegram) clearMessages() int {
 }
 
 type telegramMessage struct {
-	update *tgbotapi.Update
-	bot    *tgbotapi.BotAPI
+	update      *tgbotapi.Update
+	integration *Telegram
 }
 
-func newTelegramMessage(update *tgbotapi.Update, bot *tgbotapi.BotAPI) (Message, error) {
+func newTelegramMessage(update *tgbotapi.Update, integration *Telegram) (Message, error) {
 	if update.Message == nil {
 		return nil, fmt.Errorf("message is nil")
 	}
 
-	return &telegramMessage{update: update, bot: bot}, nil
+	return &telegramMessage{update: update, integration: integration}, nil
 }
 
 func (m *telegramMessage) Text() string {
-	return m.update.Message.Text
+	return cleanMessage(m.update.Message.Text)
 }
 
 func (m *telegramMessage) Reply(ctx context.Context, message string) error {
 	msg := tgbotapi.MessageConfig{
 		BaseChat: tgbotapi.BaseChat{
-			ChatID:           m.update.Message.Chat.ID,
-			ReplyToMessageID: m.update.Message.MessageID,
+			ChatConfig: tgbotapi.ChatConfig{
+				ChatID: m.update.Message.Chat.ID,
+			},
+			ReplyParameters: tgbotapi.ReplyParameters{
+				MessageID: m.update.Message.MessageID,
+			},
 		},
-		Text:                  message,
-		DisableWebPagePreview: false,
+		Text: message,
 	}
-	if _, err := m.bot.Send(msg); err != nil {
+	if _, err := m.integration.bot.Send(msg); err != nil {
 		return fmt.Errorf("failed to send message: %w", err)
 	}
 
+	return nil
+}
+
+func (m *telegramMessage) Parent() Message {
+	if m.update.Message.ReplyToMessage == nil {
+		return nil
+	}
+
+	update := tgbotapi.Update{
+		Message: m.update.Message.ReplyToMessage,
+	}
+
+	return &telegramMessage{update: &update, integration: m.integration}
+}
+
+func (m *telegramMessage) IsMessageToMe() bool {
+	if m.update.Message == nil {
+		return false
+	}
+
+	for _, entity := range m.update.Message.Entities {
+		if entity.Type == "mention" {
+			mention := []rune(m.update.Message.Text)[entity.Offset : entity.Offset+entity.Length]
+			if strings.Contains(string(mention), m.integration.bot.Self.UserName) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// TODO: Implement
+func (m *telegramMessage) React(ctx context.Context, emoji string) error {
 	return nil
 }
